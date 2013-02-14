@@ -1,0 +1,442 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>AutoHome</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/themes/default/jquery.mobile-1.2.0.min.css" />
+<script type="text/javascript" charset="utf-8" src="js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="js/jquery.mobile-1.2.0.min.js"></script>
+<script type="text/javascript" charset="utf-8" src="js/cordova-1.6.0.js"></script>
+<!--<script type="text/javascript" charset="utf-8" src="js/cordova-2.0.0.js"></script>--> 
+
+<script type="text/javascript" charset="utf-8" src="js/bluetooth.js"></script>
+  
+        
+<script type="text/javascript" charset="utf-8">
+  var g_socketid = null;
+  var g_bluetoothPlugin = null;
+  
+
+  
+window.addEventListener('load', function () {
+    document.addEventListener('deviceready', function () {
+    	
+        //alert("Sistema pronto para uso.");
+        setStatus( 'Sistema pronto para uso.');
+        g_bluetoothPlugin = cordova.require( 'cordova/plugin/bluetooth' );
+        
+        
+        
+        enableBT();
+        $('.btn-envia').change(function(){
+        	var valor = $(this).val();
+        	writeDevice(valor);
+        	return false;
+        	
+        });
+    }, false);
+    }, false);
+
+function enableBT() {
+	setStatus( 'Habilitando Bluetooth... aguarde...' );	
+	g_bluetoothPlugin.enable( function() {
+		//alert( 'Bluetooth Habilitado com sucesso.' );
+		setStatus( 'Bluetooth Habilitado com sucesso.' );
+		minhaConexao();
+	}, function() {
+		alert( 'Error ao habilitar BT: ' + error );
+		setStatus( 'Error ao habilitar BT: ' + error );
+		enableBT();
+		
+	} );
+}
+
+function disableBT() {
+	setStatus( 'Desabilitando Bluetooth... aguarde...' );	
+	g_bluetoothPlugin.disable( function() {
+		//alert( 'Desabilitado com sucesso.' );
+		setStatus( 'Desabilitado com sucesso.' );
+	}, function() {
+		alert( 'Error ao desabilitar BT: ' + error );
+		setStatus( 'Error ao desabilitar BT: ' + error );
+	} );
+}
+
+function discoverDevices() {
+	setStatus( 'Buscando Devices disponíveis...' );	
+    g_bluetoothPlugin.discoverDevices( function(devices) {
+    	alert(devices);
+		$('#bt-devices-select').html('');
+		setStatus( 'Busca finalizada.' );	
+    	for( var i = 0; i < devices.length; i++ ) {
+    		$('#bt-devices-select').append( $( '<option value="' + devices[i].address + '">' +devices[i].address +' ' + devices[i].name + '</option>' ) );
+    	}
+    }, function(error) { 
+    	alert( 'Error: ' + error );
+    	setStatus( 'Error: ' + error );
+    } );
+}
+
+function listUUIDs() {
+	setStatus( 'Listando UUIDs...' );	
+	g_bluetoothPlugin.getUUIDs( function(uuids) {
+		$('#bt-device-uuids').html('');
+		setStatus( 'UUIDs listados.' );	
+		for( var i = 0; i < uuids.length; i++ ) {
+			$('#bt-device-uuids').append( $( '<option value="' + uuids[i] + '">' + uuids[i] + '</option>' ) );
+			if(uuids[i] == 'JY-MCU'){
+				$('#bt-device-uuids').append( $( '<option value="' + uuids[i] + '" selected="selected">' + uuids[i] + '</option>' ) );	
+			}
+		}
+	}, function(error) { 
+		alert( 'Error: ' + error );
+		setStatus( 'Error: ' + error );
+	}, $( '#bt-devices-select' ).val() );
+}
+
+function openRfcomm() {
+	g_bluetoothPlugin.connect(
+			function(socketId)
+				{
+					g_socketid = socketId; 
+					console.log( 'Socket-id: ' + g_socketid );
+					setStatus( 'Socket-id: ' + g_socketid  );
+				}, function(error)
+						{
+							alert( 'Error: ' + error );
+							setStatus( 'Error: ' + error );
+							
+						}, 
+						$( '#bt-devices-select' ).val(),
+						$( '#bt-device-uuids' ).val()
+			);
+}
+
+
+function minhaConexao()
+{
+	g_bluetoothPlugin.connect(
+			function(socketId)
+				{
+					g_socketid = socketId; 
+					console.log( 'Socket-id: ' + g_socketid );
+					setStatus( 'Socket-id: ' + g_socketid  );
+				}, function(error)
+						{
+							alert( 'Error: ' + error );
+							setStatus( 'Error: ' + error );
+							
+						}, 
+						'00:15:FF:F4:0E:50',
+						'00001101-0000-1000-8000-00805f9b34fb'
+			);
+}
+function writeDevice(valor) {
+	setStatus( 'Enviano byte: ' + valor );	
+	g_bluetoothPlugin.write(
+			function(){
+				setStatus("Sucesso ao enviar: " + valor);
+				
+			}, function(error) {
+				alert( 'Error: ' + error );
+				setStatus( 'Error: ' + error );		 
+			}, 
+			g_socketid,
+			valor);
+}
+
+function readRfcomm() {
+	g_bluetoothPlugin.read( bp_readSuccess, bp_readError, g_socketid );
+}
+
+function bp_readError( error ) {
+	alert( 'Error: ' + error );
+}
+
+function bp_readSuccess( p_data ) {
+	$( '#bt-data-dump' ).html( p_data );
+}
+
+function setStatus(msg) {
+	$( '#status' ).html( msg );
+}
+
+</script>
+</head>
+
+ <body>
+
+<div data-role="page" id="tv">
+	<div data-role="header" data-position="fixed">
+		<h1>AutoHome</h1>
+	</div><!-- /header -->
+	<div data-role="content">
+	
+	<h3>Controle LUZ</h3>
+		<div id="status"></div>
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-1" data-inline="true">Luz 1:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-1" id="flip-1" data-role="slider" class="btn-envia">
+					<option value="A">ON</option>
+					<option value="a">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-2" data-inline="true">Luz 2:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-2" id="flip-2" data-role="slider" class="btn-envia">
+					<option value="B">ON</option>
+					<option value="b">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-3" data-inline="true">Luz 3:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-3" id="flip-3" data-role="slider" class="btn-envia">
+					<option value="C">ON</option>
+					<option value="c">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-3" data-inline="true">Luz 4:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-3" id="flip-3" data-role="slider" class="btn-envia">
+					<option value="E">ON</option>
+					<option value="e">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-4" data-inline="true">T.I. 1:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-4" id="flip-3" data-role="slider" class="btn-envia">
+					<option value="F">ON</option>
+					<option value="f">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-4" data-inline="true">T.I. 2:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-4" id="flip-3" data-role="slider" class="btn-envia">
+					<option value="G">ON</option>
+					<option value="g">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-5" data-inline="true">Tudo:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-5" id="flip-5" data-role="slider" class="btn-envia">
+					<option value="T">ON</option>
+					<option value="t">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-5" data-inline="true">Cena 1:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-5" id="flip-5" data-role="slider" class="btn-envia">
+					<option value="H">ON</option>
+					<option value="h">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-5" data-inline="true">Cena 2:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-5" id="flip-5" data-role="slider" class="btn-envia">
+					<option value="I">ON</option>
+					<option value="i">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		
+		
+		
+		<h3> Controle TV</h3>
+		<div data-role="controlgroup" data-type="horizontal">
+			<a onclick="writeDevice('l');" data-role="button" data-icon="star">ON/OFF</a>
+			<a onclick="writeDevice('m');" data-role="button" data-icon="arrow-d">Ch</a>
+			<a onclick="writeDevice('M');" data-role="button" data-icon="arrow-u">Ch</a>
+			<a onclick="writeDevice('u');" data-role="button" data-icon="minus">Vol</a>
+			<a onclick="writeDevice('U');" data-role="button" data-icon="plus">Vol</a>
+		</div>
+	</div>
+	<!-- 
+	<div data-role="footer" data-position="fixed">
+		<div data-role="navbar">
+			<ul>
+				<li><a href="#luz" data-icon="alert">Luz</a></li>
+				<li><a href="#tv" data-icon="grid">TV</a></li>
+				<li><a href="#config" data-icon="gear">Config</a></li>
+			</ul>
+		</div>
+	</div>
+	 -->
+	
+</div><!-- /page -->
+
+
+<!--  
+<div data-role="page" id="luz">
+	<div data-role="header" data-position="fixed">
+		<h1>AutoHome</h1>
+	</div>
+	<div data-role="content">
+			<h3>Controle LUZ</h3>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-1" data-inline="true">Luz 1:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-1" id="flip-1" data-role="slider" class="btn-envia">
+					<option value="a">ON</option>
+					<option value="A">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-2" data-inline="true">Luz 2:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-2" id="flip-2" data-role="slider" class="btn-envia">
+					<option value="b">ON</option>
+					<option value="B">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-3" data-inline="true">Luz 3:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-3" id="flip-3" data-role="slider" class="btn-envia">
+					<option value="c">ON</option>
+					<option value="C">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-4" data-inline="true">Ventilador:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-4" id="flip-3" data-role="slider" class="btn-envia">
+					<option value="v">ON</option>
+					<option value="V">OFF</option>
+				</select>
+			</div>	   
+		</div>
+		
+		<div class="ui-grid-a">
+			<div class="ui-block-a">
+				<label for="flip-5" data-inline="true">Tudo:</label>
+			</div>
+			<div class="ui-block-b">
+				<select name="flip-5" id="flip-5" data-role="slider" class="btn-envia">
+					<option value="t">ON</option>
+					<option value="T">OFF</option>
+				</select>
+			</div>	   
+		</div>
+	
+	</div>
+	<div data-role="footer" data-position="fixed">
+		<div data-role="navbar">
+			<ul>
+				<li><a href="#luz" data-icon="alert">Luz</a></li>
+				<li><a href="#tv" data-icon="grid">TV</a></li>
+				<li><a href="#config" data-icon="gear">Config</a></li>
+			</ul>
+		</div>
+	</div>
+</div>
+
+-->
+
+<!-- 
+
+<div data-role="page" id="config">
+	<div data-role="header" data-position="fixed">
+		<h1>AutoHome</h1>
+
+	</div>
+	<div data-role="content">
+		<p id="status" class="status"></p>
+		<div data-role="controlgroup" data-type="horizontal" >
+			<a onclick="enableBT();" data-role="button" data-inline="true" >Enable</a>
+			<a onclick="discoverDevices();" data-role="button" data-inline="true">Discover</a>
+		</div>
+		
+		<label for="bt-devices-select" class="select">Lista de dispositivos:</label>
+		<select id="bt-devices-select">
+		</select>
+		
+		<a id='bt-pair' onclick="listUUIDs();" data-role="button" data-inline="true">List UUIDs</a>
+		
+		<select id='bt-device-uuids' class="botao">
+		</select>
+		
+		<a id='bt-connect' onclick="openRfcomm();" data-role="button" data-inline="true">Connect</a>
+		
+		<button onclick="readRfcomm();" class="botao">Read</button> 
+		
+		<button onclick="minhaConexao();" class="botao">MinhaConexao</button> 
+		
+		
+		<div id='bt-data-dump'></div>
+	
+	</div>
+	<div data-role="footer" data-position="fixed">
+		<div data-role="navbar">
+			<ul>
+				<li><a href="#luz" data-icon="alert">Luz</a></li>
+				<li><a href="#tv" data-icon="grid">TV</a></li>
+				<li><a href="#config" data-icon="gear">Config</a></li>
+			</ul>
+		</div>
+	</div>
+</div>
+ -->
+
+
+</body>
+</html>
